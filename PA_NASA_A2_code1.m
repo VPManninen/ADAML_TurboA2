@@ -1,6 +1,6 @@
 % BM20A6100 Advanced Data Analysis and Machine Learning
 % Practical Assignment - NASA A2
-
+clc; close all; clearvars
 % Loading the datasets:
 DATA1 = load("train_FD001.txt");
 DATA2 = load("train_FD002.txt");
@@ -74,3 +74,49 @@ title("train\_FD003")
 figure(8)
 boxplot(normalize(DATA4(:, 1:end)))
 title("train\_FD004")
+
+% Plot timeseries for units sensor measurements over time:
+scalingF = @(x) x./max(x); % + min(x);
+figure(9)
+xlabel("Start of experiment to breakage (0, 1)")
+ylabel("Sensor measurement")
+title("train\_FD001, column 6")
+hold on
+for i = 1:max(DATA1(:, 1))
+    ind = (DATA1(:, 1) == i);
+    plot(scalingF(DATA1(ind, 2)), DATA1(ind, 6))
+end
+hold off
+
+figure(10)
+hold on
+xlabel("Start of experiment to breakage (0, 1)")
+ylabel("Sensor measurement")
+title("train\_FD001, column 12")
+for i = 1:max(DATA1(:, 1))
+    ind = (DATA1(:, 1) == i);
+    plot(scalingF(DATA1(ind, 2)), DATA1(ind, 12))
+end
+hold off
+
+figure(11)
+hold on
+xlabel("Start of experiment to breakage (0, 1)")
+ylabel("Sensor measurement")
+title("train\_FD001, column 14")
+for i = 1:max(DATA1(:, 1))
+    ind = (DATA1(:, 1) == i);
+    plot(scalingF(DATA1(ind, 2)), DATA1(ind, 14))
+end
+hold off
+
+figure(12)
+hold on
+xlabel("Start of experiment to breakage (0, 1)")
+ylabel("Sensor measurement")
+title("train\_FD001, column 26")
+for i = 1:max(DATA1(:, 1))
+    ind = (DATA1(:, 1) == i);
+    plot(scalingF(DATA1(ind, 2)), DATA1(ind, 26))
+end
+hold off
