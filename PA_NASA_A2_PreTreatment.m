@@ -10,22 +10,8 @@ TestPercentage          = 20;
 
 rng(0)   % Default permutation of the train, val and test sets.
 
-%% Loading the datasets, compute RUL, cut the first 5 columns % and normalize (center and scale)
-DATA = cell(1,4);
-for i = 1:4
-    DATA{i} = RUL_fun(load(sprintf("train_FD00%d.txt", i)));
-    DATA{i} = DATA{i}(:, 6:end);
-    if ((i == 1) || (i == 3))
-        DATA{i} = DATA{i};
-    else
-        DATA{i} = normalize(DATA{i}); % normalize(DATA{i});
-    end
-end
-
-%% Put the data into a single matrix: ? or dodo we dodo 4 model for different settings
-% DATA = [DATA1; DATA2; DATA3; DATA4];
-
 %% Column names:
+% this does not work now, some columns deleted because they were constants
 ColNames = string([]);
 for i = 1:21
     ColNames(i) = sprintf("Sensor %d", i);
@@ -33,17 +19,31 @@ end
 ColNames(22) = "RUL";
 VarLabels = ColNames;
 
+%% Loading the datasets, compute RUL, cut the first 5 columns % and normalize (center and scale)
+DATA = cell(1,4);
+model_DATA = cell(1, 4);
+for i = 1:4
+    DATA{i} = RUL_fun(load(sprintf("train_FD00%d.txt", i)));
+    DATA{i} = DATA{i}(:, 6:end);
+    ind = find(var(DATA{i}) ~=0);
+    model_DATA{i}.VarLabels = VarLabels(ind);
+    temp = DATA{i}(:, ind);
+    DATA{i} = normalize(temp);
+end
+
+%% Put the data into a single matrix: ? or dodo we dodo 4 model for different settings
+% DATA = [DATA1; DATA2; DATA3; DATA4];
+
 %% Box plots:
 figure;
 for i = 1:4
     subplot(2, 2, i)
-    boxplot(normalize(DATA{i}), ColNames);
+    boxplot(DATA{i}, model_DATA{i}.VarLabels);
     title(sprintf("Box plot of normalized dataset %d", i))
     xtickangle(90)  
 end
 
 %% Split the data into three groups: calibration, validation, testing
-model_DATA = cell(1, 4);
 for i = 1:4
     % Number of data in each dataset:
     N = size(DATA{i}, 1);
@@ -82,16 +82,16 @@ for i = 1:4
     xlabel("Principal component")
     ylabel("Cumulative componenet (%)")
     hold off
+    model_DATA{i}.ncomp = find(cumsum(model_DATA{i}.explained) >= 90, 1, 'first');
 end
 sgtitle("PCA: Explained variance")
 
 %% T2 and SPEx
-ncomp = 2;
 
 % T2 and SPEx
 for i = 1:4
-    model_DATA{i}.T2 = t2comp(model_DATA{i}.train, model_DATA{i}.coeff, model_DATA{i}.latent, ncomp);
-    model_DATA{i}.Q = qcomp(model_DATA{i}.train, model_DATA{i}.coeff, ncomp);
+    model_DATA{i}.T2 = t2comp(model_DATA{i}.train, model_DATA{i}.coeff, model_DATA{i}.latent, model_DATA{i}.ncomp);
+    model_DATA{i}.Q = qcomp(model_DATA{i}.train, model_DATA{i}.coeff, model_DATA{i}.ncomp);
     
     % T2 Control limits:
     model_DATA{i}.meanT2 = mean(model_DATA{i}.T2);          % Mean of T2
