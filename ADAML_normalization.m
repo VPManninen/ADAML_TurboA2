@@ -43,7 +43,7 @@ for k = 1:length(Data)
     model(2).X      = model(1).X - mean(model(1).X);
     model(3).X      = zscore(model(1).X);
     model(4).X      = normalize(model(1).X, 'zscore', 'robust');
-    model(5).X      = normalize(model(2).X, 'norm');
+    model(5).X      = normalize(model(2).X, "norm");
     model(6).X      = normalize(model(1).X, 'center', 'mean', 'scale', 'mad');
     
     figure
@@ -56,19 +56,54 @@ for k = 1:length(Data)
     hold off
 end
 
+%% Visualizing the pretreated data
+
+% the center and p-norm were chosen to be the normalization method.
+% Visualizing all the datasets as normalized
+
+figure
+subplot(2,2,1)
+boxplot(normalize(DATA1(:, 1:end)))
+title("train\_FD001")
+
+subplot(2,2,2)
+boxplot(normalize(DATA2(:, 1:end)))
+title("train\_FD002")
+
+subplot(2,2,3)
+boxplot(normalize(DATA3(:, 1:end)))
+title("train\_FD003")
+
+subplot(2,2,4)
+boxplot(normalize(DATA4(:, 1:end)))
+title("train\_FD004")
+%%
+ColNames = string([]);
+for i = 1:21
+    ColNames(i) = sprintf("Sensor %d", i);
+end
+ColNames(22) = "RUL";
+VarLabels = ColNames;
+
+DATA = cell(1,4);
+model_DATA = cell(1, 4);
+for i = 1:4
+    DATA{i} = load(sprintf("train_FD00%d.txt", i));
+    DATA{i} = DATA{i}(:, 6:end);
+    ind = find(var(DATA{i}) > 10^(-10));
+    model_DATA{i}.VarLabels = VarLabels(ind);
+    temp = DATA{i}(:, ind);
+    DATA{i} = normalize(temp);
+end
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+for i=1:length(DATA)
+    figure
+    hold on
+    for j = 1:size(DATA{i},2)
+        subplot(4,6,j)
+        histogram(DATA{i}(:,j));
+    end
+    sgtitle("Variable histograms for the model " + i)
+end
 
