@@ -3,10 +3,8 @@
 clc; close all; clearvars
 
 %% Settings:
-TrainPercentage         = 70;
-ValidationPercentage    = 10;
-TestPercentage          = 20;
-
+TrainPercentage         = 75;
+TestPercentage          = 25;
 
 rng(0)   % Default permutation of the train, val and test sets.
 
@@ -19,16 +17,39 @@ end
 ColNames(22) = "RUL";
 VarLabels = ColNames;
 
-%% Loading the datasets, compute RUL, cut the first 5 columns % and normalize (center and scale)
+%% Loading the datasets, compute RUL, split the data, cut the first 5 columns and normalize (center and scale)
 DATA = cell(1,4);
 model_DATA = cell(1, 4);
+
 for i = 1:4
     DATA{i} = RUL_fun(load(sprintf("train_FD00%d.txt", i)));
-    DATA{i} = DATA{i}(:, 6:end);
-    ind = find(var(DATA{i}) ~=0);
+end
+
+model_DATA{1}.train = DATA{1}(find(DATA{1}(:, 1) <= 75), :);
+model_DATA{1}.test = DATA{1}(find(DATA{1}(:, 1) > 75), :);
+
+model_DATA{2}.train = DATA{2}(find((DATA{2}(:, 1) <= 50) | (DATA{2}(:, 1) > 75)), :);
+model_DATA{2}.test = DATA{2}(find((DATA{2}(:, 1) <= 75) & (DATA{2}(:, 1) > 50)), :);
+
+model_DATA{3}.train = DATA{3}(find((DATA{3}(:, 1) <= 25) | (DATA{3}(:, 1) > 50)), :);
+model_DATA{3}.test = DATA{3}(find((DATA{3}(:, 1) <= 50) & (DATA{3}(:, 1) > 25)), :);
+
+model_DATA{4}.train = DATA{4}(find(DATA{4}(:, 1) > 25), :);
+model_DATA{4}.test = DATA{4}(find(DATA{4}(:, 1) <= 25), :);
+
+for i = 1:4
+    model_DATA{i}.train = model_DATA{i}.train(:, 6:end);
+    model_DATA{i}.test = model_DATA{i}.test(:, 6:end);
+
+    ind = find(var(model_DATA{i}.train) >= 1e-6);
+    
     model_DATA{i}.VarLabels = VarLabels(ind);
-    temp = DATA{i}(:, ind);
-    DATA{i} = normalize(temp);
+    
+    model_DATA{i}.train = model_DATA{i}.train(:, ind);
+    model_DATA{i}.test = model_DATA{i}.test(:, ind);
+    
+    [model_DATA{i}.train, C, S] = normalize(model_DATA{i}.train);
+    model_DATA{i}.test = normalize(model_DATA{i}.test, 'Center', C, 'Scale', S);
 end
 
 %% Put the data into a single matrix: ? or dodo we dodo 4 model for different settings
@@ -38,27 +59,9 @@ end
 figure;
 for i = 1:4
     subplot(2, 2, i)
-    boxplot(DATA{i}, model_DATA{i}.VarLabels);
+    boxplot(model_DATA{i}.train, model_DATA{i}.VarLabels);
     title(sprintf("Box plot of normalized dataset %d", i))
     xtickangle(90)  
-end
-
-%% Split the data into three groups: calibration, validation, testing
-for i = 1:4
-    % Number of data in each dataset:
-    N = size(DATA{i}, 1);
-
-    % Permutation of the data:
-    I = randperm(N);
-
-    % Index cutoffs:
-    Train = floor(N * TrainPercentage / 100);
-    Test = floor(N - N * TestPercentage / 100);
-    
-    % Split the data:
-    model_DATA{i}.train = DATA{i}(I(1:Train), :);
-    model_DATA{i}.test = DATA{i}(I(Test:end), :);
-    model_DATA{i}.validation = DATA{i}(I(Train+1:Test-1), :);
 end
 
 %% PCA:
