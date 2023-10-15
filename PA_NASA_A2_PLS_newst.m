@@ -153,13 +153,13 @@ for dataset = 1:4
 end
 
 %% Box plots:
-figure;
-for i = 1:4
-    subplot(2, 2, i)
-    boxplot(model_DATA{i}.train, model_DATA{i}.VarLabels);
-    title(sprintf("Box plot of dataset %d", i))
-    xtickangle(90)  
-end
+% figure;
+% for i = 1:4
+%     subplot(2, 2, i)
+%     boxplot(model_DATA{i}.train, model_DATA{i}.VarLabels);
+%     title(sprintf("Box plot of dataset %d", i))
+%     xtickangle(90)  
+% end
 
 %%  VIP scores
 
@@ -215,6 +215,8 @@ end
 
 %% R2 - Q2
 for dataset = 1:4
+    R2 = [];
+    Q2 = [];
     for kfold = 1:4
         for LV = 1:size(model_DATA{dataset}.train,2)
             R2(kfold,LV) = plsModel{dataset}.ncomp{LV}.R2(kfold);
@@ -224,7 +226,7 @@ for dataset = 1:4
     
     figure;
     
-    subplot(2, 1, 1)
+    subplot(3, 1, 1)
     % yvalues = {'1', '2', '3', '4'};
     % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'};
     % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'};
@@ -233,7 +235,7 @@ for dataset = 1:4
     xlabel("No. components in the model");
     title("R2 values")
     
-    subplot(2, 1, 2)
+    subplot(3, 1, 2)
     % yvalues = {'1', '2', '3', '4'};
     % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'};
     % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'};
@@ -243,6 +245,17 @@ for dataset = 1:4
     title("Q2 values");
 
     sgtitle("Dataset " + dataset)
+
+    subplot(3,1,3)
+    plot(1:1:size(model_DATA{dataset}.train,2),mean(R2,1), 'k')
+    hold on
+    plot(1:1:size(model_DATA{dataset}.train,2),mean(Q2,1), 'm')
+    xlabel("No. components in the model");
+    title("Mean of the R^2 and Q^2 values over the k-folds")
+    legend("R^2", "Q^2")
+    ylim([0,1])
+
+
 end
 
 %% Coefficients
