@@ -1,6 +1,6 @@
 % BM20A6100 Advanced Data Analysis and Machine Learning
 % Practical Assignment - NASA A2
-clc;  clearvars
+clc; close all; clearvars
 
 %% Settings:
 TrainPercentage         = 80;   % Percentage of data used for k-fold and calibration
@@ -22,7 +22,7 @@ VarLabels = ColNames;
 % Define the variables for the modelling storage
 DATA = cell(1,4);
 model_DATA = cell(1, 4);
-RUL_t = 50;
+RUL_t = 75;
 % Load the dataset, compute the RUL and add it to the dataset
 for i = 1:4
     DATA{i} = RUL_fun(load(sprintf("train_FD00%d.txt", i)));
@@ -31,12 +31,20 @@ end
 %%
 % define which variables are not meaningful to the model
 deleted = cell(1,4);
-deleted{1} = [14,8,9,13,3,17,2,20,21,15]; %[6, 14, 8, 9, 3, 2, 17, 20, 13, 21, 15];
-deleted{2} = [6,19,7,5,8,12,9,13,3,2,17,20,10]; %[6, 19, 5, 7, 9, 8, 12, 13, 17, 2, 20, 3, 18];
-deleted{3} = [15,6,21,20,10,7,12,14,9,13,8,2]; %[15, 21, 20, 6, 7, 12, 10, 14, 9, 2, 3, 8];
-deleted{4} = [5,6,20,13,7,9,21,12,19,2,3,1,17]; %[5, 6, 9, 13, 2, 7, 21, 16, 8, 17, 12, 20, 3];
+deleted{1} = [14, 9, 13,  8,  3, 17,  2, 20, 21, 15];
+            %[6, 14,  9,  3,  2, 13, 17,  8, 20, 21, 15];
+            %[6, 14,  8,  9,  3,  2, 17, 20, 13, 21, 15];
+deleted{2} = [5, 13, 6, 12, 9, 19, 7, 2, 3, 8, 17, 21, 18];
+            %[ 5,  6, 13,  9, 12, 19,  7,  2,  8,  3, 21, 17, 18];
+            %[ 6, 19,  5,  7, 9,  8, 12, 13, 17,  2, 20, 3, 18];
+deleted{3} = [6, 15, 21, 20, 7, 12, 10, 14, 9, 2, 8, 13];
+            %[15, 21, 20,  6,  7, 12, 10, 14,  9,  2,  3,  8];
+            %[15, 21, 20,  6, 7, 12, 10, 14,  9,  2,  3, 8];
+deleted{4} = [5, 12,  7,  9, 6, 13, 2, 21, 19, 17, 20, 3, 1];
+            %[ 5,  6,  2, 12,  9,  7, 13, 21, 19, 17,  1, 20,  3];
+            %[5,   6,  9, 13, 2,  7, 21, 16,  8, 17, 12, 20, 3];
 
-
+indind = cell(1, 4);
 % Pretreatment (without normalization):
 for i = 1:4
     % Take the number of units in the dataset:
@@ -69,6 +77,7 @@ for i = 1:4
     
     % Find those sensors, which have 0 variance in the measurements and remove them:
     ind = find(var(model_DATA{i}.train) >= 1e-6); 
+    indind{i} = find(var(model_DATA{i}.train) < 1e-6); 
 
     % Cut the labels correspondingly:
     model_DATA{i}.VarLabels = VarLabels;
@@ -108,67 +117,68 @@ for dataset = 1:4
         plsModel{dataset}.calibrationY{kfold} = model_DATA{dataset}.Ytrain(~ismember(model_DATA{dataset}.trainUnit,valUnits),:);
         plsModel{dataset}.validationY{kfold} = model_DATA{dataset}.Ytrain(ismember(model_DATA{dataset}.trainUnit,valUnits),:);
         
-        % compute pls only for desired number of latent variables
-        LV = LV_per_Data(dataset);
-        % This section of the code is basically the same as in the
-        % workshop 2:
+        % Loop over the possible number of latent variables (number of columns):
+        for LV = 1:LV_per_Data(dataset)
+            % This section of the code is basically the same as in the
+            % workshop 2:
 
-        % Normalize the calibration partition (X)
-        [plsModel{dataset}.calibrationN{kfold}, plsModel{dataset}.mu{kfold},...
-            plsModel{dataset}.sig{kfold}] = ...
-            normalize(plsModel{dataset}.calibration{kfold});
-        X = plsModel{dataset}.calibrationN{kfold};
+            % Normalize the calibration partition (X)
+            [plsModel{dataset}.calibrationN{kfold}, plsModel{dataset}.mu{kfold},...
+                plsModel{dataset}.sig{kfold}] = ...
+                normalize(plsModel{dataset}.calibration{kfold});
+            X = plsModel{dataset}.calibrationN{kfold};
+    
+            % Normalize the validation partition with calb. mean and var (Xt)
+            plsModel{dataset}.validationN{kfold} = normalize(plsModel{dataset}.validation{kfold}, "center", ...
+                plsModel{dataset}.mu{kfold}, "scale", plsModel{dataset}.sig{kfold});
+            Xt = plsModel{dataset}.validationN{kfold};
+    
+            % Center the responses (Y and Yt) with calibration sets mean:
+            plsModel{dataset}.meanY{kfold} = mean(plsModel{dataset}.calibrationY{kfold});
+            plsModel{dataset}.calibrationYN{kfold} = plsModel{dataset}.calibrationY{kfold} - plsModel{dataset}.meanY{kfold}; 
+            Y = plsModel{dataset}.calibrationYN{kfold};
+            plsModel{dataset}.validationYN{kfold} = plsModel{dataset}.validationY{kfold} - plsModel{dataset}.meanY{kfold};
+            Yt = plsModel{dataset}.validationYN{kfold};
+    
+            % Performing PLS:
+            [plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.P, ... 
+                plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.T, ...
+                plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.Q, ...
+                plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.U, ...
+                plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.B, ...
+                ~, ...
+                plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.MSE, ...
+                plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.stats] = plsregress(X, Y, LV);
+    
+            % Calculate R2 value:
+            % Modelled responses for calibration: 
+            Yfit    = [ones(size(X,1),1), X] * plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.B;
+            % Squared residuals from mean:
+            TSSRes  = sum((Y - mean(Y)).^2);
+            % Squared residuals from model values:
+            RSSRes  = sum((Y - Yfit).^2);
+            % R2:
+            plsModel{dataset}.ncomp{LV}.R2(kfold) = 1 - RSSRes / TSSRes;
 
-        % Normalize the validation partition with calb. mean and var (Xt)
-        plsModel{dataset}.validationN{kfold} = normalize(plsModel{dataset}.validation{kfold}, "center", ...
-            plsModel{dataset}.mu{kfold}, "scale", plsModel{dataset}.sig{kfold});
-        Xt = plsModel{dataset}.validationN{kfold};
+            % Calculate Q2
+            
+            % Modelled responses for validation: 
+            YfitT   = [ones(size(Xt,1),1), Xt] * plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.B;
+            % Squared residuals from model values:
+            PRESS = sum((Yt - YfitT).^2);
+            % Q2:
+            plsModel{dataset}.ncomp{LV}.Q2(kfold) = 1 - PRESS / TSSRes;
 
-        % Center the responses (Y and Yt) with calibration sets mean:
-        plsModel{dataset}.meanY{kfold} = mean(plsModel{dataset}.calibrationY{kfold});
-        plsModel{dataset}.calibrationYN{kfold} = plsModel{dataset}.calibrationY{kfold} - plsModel{dataset}.meanY{kfold}; 
-        Y = plsModel{dataset}.calibrationYN{kfold};
-        plsModel{dataset}.validationYN{kfold} = plsModel{dataset}.validationY{kfold} - plsModel{dataset}.meanY{kfold};
-        Yt = plsModel{dataset}.validationYN{kfold};
-
-        % Performing PLS:
-        [plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.P, ... 
-            plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.T, ...
-            plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.Q, ...
-            plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.U, ...
-            plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.B, ...
-            ~, ...
-            plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.MSE, ...
-            plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.stats] = plsregress(X, Y, LV);
-
-        % Calculate R2 value:
-        % Modelled responses for calibration: 
-        Yfit    = [ones(size(X,1),1), X] * plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.B;
-        % Squared residuals from mean:
-        TSSRes  = sum((Y - mean(Y)).^2);
-        % Squared residuals from model values:
-        RSSRes  = sum((Y - Yfit).^2);
-        % R2:
-        plsModel{dataset}.ncomp{LV}.R2(kfold) = 1 - RSSRes / TSSRes;
-
-        % Calculate Q2
-        
-        % Modelled responses for validation: 
-        YfitT   = [ones(size(Xt,1),1), Xt] * plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.B;
-        % Squared residuals from model values:
-        PRESS = sum((Yt - YfitT).^2);
-        % Q2:
-        plsModel{dataset}.ncomp{LV}.Q2(kfold) = 1 - PRESS / TSSRes;
-
-        % Storing for later:
-        plsModel{dataset}.ncomp{LV}.B(kfold,:) = plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.B;
-        
-        % Check if the R2 and Q2 values are calculated in a stable
-        % manner:
-        plsModel{dataset}.ncomp{LV}.Q2(isnan(plsModel{dataset}.ncomp{LV}.Q2)) = 0;
-        plsModel{dataset}.ncomp{LV}.Q2(find(plsModel{dataset}.ncomp{LV}.Q2==-Inf)) = 0;
-        plsModel{dataset}.ncomp{LV}.meanR2 = nanmean(plsModel{dataset}.ncomp{LV}.R2');
-        plsModel{dataset}.ncomp{LV}.meanQ2 = nanmean(plsModel{dataset}.ncomp{LV}.Q2'); 
+            % Storing for later:
+            plsModel{dataset}.ncomp{LV}.B(kfold,:) = plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.B;
+            
+            % Check if the R2 and Q2 values are calculated in a stable
+            % manner:
+            plsModel{dataset}.ncomp{LV}.Q2(isnan(plsModel{dataset}.ncomp{LV}.Q2)) = 0;
+            plsModel{dataset}.ncomp{LV}.Q2(find(plsModel{dataset}.ncomp{LV}.Q2==-Inf)) = 0;
+            plsModel{dataset}.ncomp{LV}.meanR2 = nanmean(plsModel{dataset}.ncomp{LV}.R2');
+            plsModel{dataset}.ncomp{LV}.meanQ2 = nanmean(plsModel{dataset}.ncomp{LV}.Q2'); 
+        end
     end
 end
 
@@ -185,58 +195,71 @@ end
 
 for dataset = 1:4
 
-    nLV = size(model_DATA{dataset}.train,2);
+    nLV = LV_per_Data(dataset);
     plsModel{dataset}.VIP_index = [];
     nVar = length(model_DATA{dataset}.VarLabels);
 
     count = 1;
 
-    LV = LV_per_Data(dataset);
     figure;
-    hold on
-    for kfold = 1:4
-        % Uses the normalized PLS weights
-        plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.W0 = ... 
-            plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.stats.W ./  ...
-            sqrt(sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.stats.W.^2,1));
+    VIP_values_per_LV = [];
+    for LV = 1:nLV
+        nPlot = ceil(sqrt(nLV));
         
-        p              = size(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.P, 1);
-        
-        sumSq          = sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.T.^2,1).* ...
-                            sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.Q.^2,1);
-        
-        vipScore       = sqrt(p*sum(sumSq.* ...
-            (plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.W0.^2),2) ./ sum(sumSq,2));
-        
-        indVIP         = find(vipScore >= 1);
-        
-        plsModel{dataset}.VIP_index(count, :) = zeros(1, nVar);
-        plsModel{dataset}.VIP_index(count, indVIP) = 1;
+        subplot(nPlot, nPlot, LV)
+        hold on
+        VIP_values_per_kfold = [];
+        for kfold = 1:4
+            % Uses the normalized PLS weights
+            plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.W0 = ... 
+                plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.stats.W ./  ...
+                sqrt(sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.stats.W.^2,1));
+            
+            p              = size(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.P, 1);
+            
+            sumSq          = sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.T.^2,1).* ...
+                                sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.Q.^2,1);
+            
+            vipScore       = sqrt(p*sum(sumSq.* ...
+                (plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.W0.^2),2) ./ sum(sumSq,2));
+            
+            indVIP         = find(vipScore >= 1);
+            VIP_values_per_kfold = [VIP_values_per_kfold; vipScore'];
 
-        scatter(1:length(vipScore),vipScore,'bx')
-        scatter(indVIP,vipScore(indVIP),'rx')
-        plot([1 length(vipScore)],[1 1],'--k')
-        count = count + 1;
+            scatter(1:length(vipScore),vipScore,'bx')
+            scatter(indVIP,vipScore(indVIP),'rx')
+            plot([1 length(vipScore)],[1 1],'--k')
+            count = count + 1;
+        end
+        VIP_values_per_LV = [VIP_values_per_LV ;mean(VIP_values_per_kfold)];
+        axis tight
+        title("Number of LVs: " + LV)
+        xlabel('Predictor Variables')
+        ylabel('VIP Scores')
+        xticks(1:nVar)
+        xticklabels(model_DATA{dataset}.VarLabels);
+        hold off
     end
-    axis tight
-    %title("Number of LVs: " + LV)
-    xlabel('Predictor Variables')
-    ylabel('VIP Scores')
-    xticks(1:nVar)
-    xticklabels(model_DATA{dataset}.VarLabels);
-    hold off
-    plsModel{dataset}.VIP_index_mean = mean(plsModel{dataset}.VIP_index, 1);
-    title("Dataset " + dataset)
+    sgtitle("Dataset " + dataset)
+    [least_important_var, del_ind] = min(mean(VIP_values_per_LV));
+    disp("For dataset " + dataset + " remove " + model_DATA{dataset}.VarLabels(del_ind) + ", with VIP = " + least_important_var)
 end
+
+% calculate the mean over different kfolds and over different latent
+% variables used and delete the one that is the least important for all of
+% the latent variables
+
+
 
 %% R2 - Q2
 for dataset = 1:4
     R2 = [];
     Q2 = [];
     for kfold = 1:4
-        LV = LV_per_Data(dataset);
-        R2(kfold) = plsModel{dataset}.ncomp{LV}.R2(kfold);
-        Q2(kfold) = plsModel{dataset}.ncomp{LV}.Q2(kfold);
+        for LV = 1:LV_per_Data(dataset)
+            R2(kfold,LV) = plsModel{dataset}.ncomp{LV}.R2(kfold);
+            Q2(kfold,LV) = plsModel{dataset}.ncomp{LV}.Q2(kfold);
+        end
     end
     
     figure;
@@ -262,30 +285,31 @@ for dataset = 1:4
     sgtitle("Dataset " + dataset)
 
     subplot(3,1,3)
-    plot(mean(R2,1), 'k')
+    plot(1:1:LV_per_Data(dataset),mean(R2,1), 'k')
     hold on
-    plot(mean(Q2,1), 'm')
+    plot(1:1:LV_per_Data(dataset),mean(Q2,1), 'm')
     xlabel("No. components in the model");
     title("Mean of the R^2 and Q^2 values over the k-folds")
     legend("R^2", "Q^2")
     ylim([0,1])
-
-
 end
+
 
 %% Coefficients
 for dataset = 1:4
     coeffs = [];
-    nLV = size(model_DATA{dataset}.train,2);
-    LV = LV_per_Data(dataset);
+    nLV = LV_per_Data(dataset);
     figure;
-    hold on
-    coeffs = mean(plsModel{dataset}.ncomp{LV}.B(:,2:end));
-    bar(coeffs)
-    title("Dataset " + dataset)
-    xticks([1:1:nLV])
-    xticklabels(model_DATA{dataset}.VarLabels)
-    hold off
+    for LV = 1:nLV
+        nPlot = ceil(sqrt(nLV));
+        subplot(nPlot, nPlot, LV)
+        hold on
+        coeffs(LV, :) = mean(plsModel{dataset}.ncomp{LV}.B);
+        bar(coeffs(LV, :))
+        title("LV " + LV)
+        hold off
+    end
+    sgtitle("Dataset " + dataset)
 end
 
 %% Testitesting
@@ -320,7 +344,7 @@ for dataset = 1:4
     end
 end
 
-%% Plotting true Y values and estimated Y values against each other
+% Plotting true Y values and estimated Y values against each other
 mark = ["mo", "co", "ro", "ko"];
 for dataset = 1:4
   figure;
@@ -328,7 +352,7 @@ for dataset = 1:4
     subplot(2, 2, kfold)
     hold on
     plot(plsModel{dataset}.testYN{kfold}, plsModel{dataset}.YfitT{kfold}, mark(kfold))
-    plot([-50, 50], [-50,50], 'g--', LineWidth=3)
+    plot([-100, 100], [-100,100], 'g--', LineWidth=3)
     xlabel("True values")
     ylabel("Predicted values")
     title("Kfold " + kfold)
