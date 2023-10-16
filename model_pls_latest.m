@@ -164,9 +164,10 @@ end
 %%  VIP scores
 
 for dataset = 1:4
-
+    % define how many LV is used
     nLV = size(model_DATA{dataset}.train,2);
     plsModel{dataset}.VIP_index = [];
+    % define how many variables is included in the model
     nVar = length(model_DATA{dataset}.VarLabels);
 
     count = 1;
@@ -187,15 +188,15 @@ for dataset = 1:4
             
             sumSq          = sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.T.^2,1).* ...
                                 sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.Q.^2,1);
-            
+            % compute the VIP score
             vipScore       = sqrt(p*sum(sumSq.* ...
                 (plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.W0.^2),2) ./ sum(sumSq,2));
-            
+            % find which values are over 1, mark them with red
             indVIP         = find(vipScore >= 1);
             
             plsModel{dataset}.VIP_index(count, :) = zeros(1, nVar);
             plsModel{dataset}.VIP_index(count, indVIP) = 1;
-
+            % plot the VIP scores
             scatter(1:length(vipScore),vipScore,'bx')
             scatter(indVIP,vipScore(indVIP),'rx')
             plot([1 length(vipScore)],[1 1],'--k')
@@ -214,6 +215,7 @@ for dataset = 1:4
 end
 
 %% R2 - Q2
+% retrieving R2 and Q2 values from the plsModel for every dataset
 for dataset = 1:4
     R2 = [];
     Q2 = [];
@@ -227,18 +229,12 @@ for dataset = 1:4
     figure;
     
     subplot(3, 1, 1)
-    % yvalues = {'1', '2', '3', '4'};
-    % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'};
-    % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'};
     heatmap(R2);
     ylabel("K-fold");
     xlabel("No. components in the model");
     title("R2 values")
     
     subplot(3, 1, 2)
-    % yvalues = {'1', '2', '3', '4'};
-    % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'};
-    % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'};
     heatmap(Q2);
     ylabel("K-fold");
     xlabel("No. components in the model");

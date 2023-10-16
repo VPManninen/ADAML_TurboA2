@@ -194,19 +194,19 @@ end
 %%  VIP scores
 
 for dataset = 1:4
-
+    % define how many LV is used
     nLV = LV_per_Data(dataset);
     plsModel{dataset}.VIP_index = [];
+    % define how many variables is included in the model
     nVar = length(model_DATA{dataset}.VarLabels);
 
     count = 1;
 
-    
+    % define VIP values per every latent variable
     VIP_values_per_LV = [];
     for LV = 1:nLV
         nPlot = ceil(sqrt(nLV));
-        
-        %subplot(nPlot, nPlot, LV)
+        % define VIP values per every kfold iteration
         VIP_values_per_kfold = [];
         for kfold = 1:4
             % Uses the normalized PLS weights
@@ -218,23 +218,26 @@ for dataset = 1:4
             
             sumSq          = sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.T.^2,1).* ...
                                 sum(plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.Q.^2,1);
-            
+            % compute the VIP score
             vipScore       = sqrt(p*sum(sumSq.* ...
                 (plsModel{dataset}.ncomp{LV}.KFOLD{kfold}.W0.^2),2) ./ sum(sumSq,2));
-            
-            indVIP         = find(vipScore >= 1);
+            % add this kfold's VIP score to the vector
             VIP_values_per_kfold = [VIP_values_per_kfold; vipScore'];
 
-            
             count = count + 1;
         end
+        % VIP scores for every latent variable, calculate the mean over the
+        % kfolds values
         VIP_values_per_LV = [VIP_values_per_LV ;mean(VIP_values_per_kfold)];
-        
     end
+    % calculate the mean over every latent variable to get a one VIP score
+    % per latent variable
     VIP_values_per_LV = mean(VIP_values_per_LV);
+    % find which values are over 1, mark them with red
     indVIP         = find(VIP_values_per_LV >= 1);
     figure;
     hold on
+    % plot the VIP scores
     s = scatter(1:length(VIP_values_per_LV),VIP_values_per_LV,'bx', linewidth=3);
     s.SizeData = 50;
     s = scatter(indVIP, VIP_values_per_LV(indVIP),'rx', linewidth=3);
@@ -257,6 +260,7 @@ end
 
 
 %% R2 - Q2
+% retrieving R2 and Q2 values from the plsModel for every dataset
 for dataset = 1:4
     R2 = [];
     Q2 = [];
@@ -270,18 +274,12 @@ for dataset = 1:4
     figure;
     
     subplot(2, 1, 1)
-    % yvalues = {'1', '2', '3', '4'};
-    % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'};
-    % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'};
     heatmap(R2);
     ylabel("K-fold");
     xlabel("No. components in the model");
     title("R2 values")
     
     subplot(2, 1, 2)
-    % yvalues = {'1', '2', '3', '4'};
-    % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'};
-    % xvalues = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'};
     heatmap(Q2);
     ylabel("K-fold");
     xlabel("No. components in the model");
@@ -289,14 +287,6 @@ for dataset = 1:4
 
     sgtitle("Dataset " + dataset + " (high RULs removed), R2 and Q2 values")
 
-%     subplot(3,1,3)
-%     plot(1:1:LV_per_Data(dataset),mean(R2,1), 'k')
-%     hold on
-%     plot(1:1:LV_per_Data(dataset),mean(Q2,1), 'm')
-%     xlabel("No. components in the model");
-%     title("Mean of the R^2 and Q^2 values over the k-folds")
-%     legend("R^2", "Q^2")
-%     ylim([0,1])
 end
 
 
