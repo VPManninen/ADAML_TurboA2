@@ -26,11 +26,13 @@ DATA2_nan_count = sum(isnan(DATA2), 'all');
 DATA3_nan_count = sum(isnan(DATA3), 'all');
 DATA4_nan_count = sum(isnan(DATA4), 'all');
 
+% Check if there are zeros in the data:
 DATA1_zero_count = sum(DATA1 == 0, 'all');
 DATA2_zero_count = sum(DATA2 == 0, 'all');
 DATA3_zero_count = sum(DATA3 == 0, 'all');
 DATA4_zero_count = sum(DATA4 == 0, 'all');
 
+% Check if the zeros are within the options:
 DATA1_zero_opt_count = sum(DATA1(:, 3:4) == 0, 'all');
 DATA2_zero_opt_count = sum(DATA2(:, 3:4) == 0, 'all');
 DATA3_zero_opt_count = sum(DATA3(:, 3:4) == 0, 'all');
